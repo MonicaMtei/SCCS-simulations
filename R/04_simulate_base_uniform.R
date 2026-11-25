@@ -1,3 +1,4 @@
+#follows the same logic as the skewed distribution base case, but dose 1 is sampled from a uniform distribution instead of a left-skewed distribution
 simulate_base <- function(RI, years, seed = seed) {
   set.seed(seed)
   
@@ -14,14 +15,14 @@ simulate_base <- function(RI, years, seed = seed) {
   
   # --- Dose times: gap in [60, 90] ensures no overlap with a 28-day risk window ---
   dose1 <- sample(startdose1:enddose1, n, replace = TRUE) #set enddose1 as the last day dose1 is received in the distribution to allow maximum dose interval to include dose 2 in the observation period
-  gap12 <- sample(60:90, n, replace = TRUE)  # >=30 means no overlap (risklen=28)
+  gap12 <- sample(60:90, n, replace = TRUE)  
   dose2 <- dose1 + gap12
   
-  # Untruncated risk windows (may extend past aend)
+  #start and end of risk periods for dose 1 and 2
   r1s <- dose1; r1e <- dose1 + risklen
   r2s <- dose2; r2e <- dose2 + risklen
   
- # --- Intersections with [astart, aend] for person-time accounting guarding againts length=0 and also against risk windows that extend past aend
+  #person-time accounting
   S1 <- pmax(astart, r1s); E1 <- pmin(aend, r1e); len1 <- pmax(0L, E1 - S1 + 1L)
   S2 <- pmax(astart, r2s); E2 <- pmin(aend, r2e); len2 <- pmax(0L, E2 - S2 + 1L)
   
@@ -40,8 +41,8 @@ simulate_base <- function(RI, years, seed = seed) {
   post_start <- pmax(astart, E2 + 1L)
   post_end   <- aend
   Lpost_tail <- pmax(0L, post_end - post_start + 1L)
-
-
+  
+  
   Lpost <- Lgap + Lpost_tail
   
   # --- Multinomial probabilities (pre, risk union, post) 
@@ -64,7 +65,7 @@ simulate_base <- function(RI, years, seed = seed) {
     event_day[idx1] <- astart + floor(runif(length(idx1)) * Lpre[idx1])
   }
   
-  # Risk (choose window 1 vs 2 with weights = len1, len2; no overlap now)
+  # Risk (choose window 1 vs 2 with weights = len1, len2)
   idx2 <- which(block_int == 2L & Lrisk > 0L)
   if (length(idx2)) {
     w1 <- len1[idx2]; w2 <- len2[idx2]; W <- w1 + w2
