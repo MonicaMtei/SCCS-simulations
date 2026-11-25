@@ -1,8 +1,8 @@
 
 
 #function to simulate replicates for each scenario from base case to variation
-# Run one simulation replicate for a given scenario variation, fit all methods
-one_run_one_variation2 <- function(i, variation_id, RI, years, master_seed = 12) {
+# Run one simulation replicate for a given scenario or its variation, fit all methods, extract estimates and store results
+simulate_replicate <- function(i, variation_id, RI, years, master_seed = 12) {
   m      <- .Machine$integer.max
   sseed  <- scenario_seed(master_seed, RI, years) #seed for base simulation (varies by scenario only i.e., RI and years)
   
@@ -12,7 +12,7 @@ one_run_one_variation2 <- function(i, variation_id, RI, years, master_seed = 12)
   
   # Variation seed: independent per (scenario, i, variation_id)
   seed_var  <- variation_seed(sseed, i, variation_id) #seed for variation variation=0:6 and where 0 is base case, varies by simulation replicate and variation_id and constant for scenario (years and RI)
-
+  
   #simulate data for a particular replicate
   dat <- if (variation_id == 0) base_df else #if variation id=0, it returns the base case for that replicate, otheriwise it makes a particular variation from the base case for that replicate i
     make_variation(
@@ -22,13 +22,13 @@ one_run_one_variation2 <- function(i, variation_id, RI, years, master_seed = 12)
       years = years,
       seed = seed_var #when making variation it uses the seed var
     )
-
+  
   #the simulated data for replicate i is then fitted for all the methods, estimates and standard errors from the model are extracted and results are stored along with their seeds that used to simulate the data to ensure reproducibility
   purrr::imap_dfr(fitters, function(fitter, method_name) {
     fit <- tryCatch(fitter(dat), error = function(e) NULL)
     extract_ri_se(fit, approach = method_name) %>%
       dplyr::mutate(sim = i, variation = variation_id, RI_true = RI, years = years, master_seed = master_seed,
-    seed_base=seed_base, seed_var=seed_var)
+                    seed_base=seed_base, seed_var=seed_var)
   })
 }
 
@@ -49,7 +49,7 @@ run_all_scenarios <- function(RI_values = c(1, 2),
     purrr::map_dfr(variations, function(v) {
       # loop sims for one (variation, RI, years)
       purrr::map_dfr(seq_len(nsim), function(i) {
-        one_run_one_variation2(i = i, variation_id = v, RI = RI, years = years)
+        simulate_replicate(i = i, variation_id = v, RI = RI, years = years)
       })
     }) %>%
       mutate(scenario = paste0("RI=", RI, ", Years=", years))
@@ -79,5 +79,6 @@ cat("Saved to:", path, "\n")
 print(file.info(path)$mtime)
 
 saveRDS(results_all, file = "results/results_all.rds")
+
 
 
