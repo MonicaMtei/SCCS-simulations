@@ -11,17 +11,15 @@ make_variation <- function(base_df, variation_id, RI, years, seed) {
     n_sel <- round(fraction * length(idx))
     if (n_sel > 0) sample(idx, size = n_sel, replace = FALSE) else integer(0)
   }
-  pick_fixed_count <- function(idx, n_sel) {
-    if (n_sel > 0) sample(idx, size = n_sel, replace = FALSE) else integer(0)
-  }
   
   
   ## ---- eligibility helpers
-  
+  #  event within 1..14 days before Dose 1 (for variation 1&2)
   elig_14_before_d1 <- function(d) {
     gap <- d$adrug1 - d$aevent
     which(!is.na(d$adrug1) & !is.na(d$aevent) & gap >= 1L & gap <= 14L)
   }
+  #  event within 1..14 days before Dose 2 AND after Dose 1 (for variation 1&2)
   elig_14_before_d2 <- function(d) {
     gap <- d$adrug2 - d$aevent
     which(!is.na(d$adrug1) & !is.na(d$adrug2) & !is.na(d$aevent) &
@@ -29,19 +27,20 @@ make_variation <- function(base_df, variation_id, RI, years, seed) {
   }
   
   
-  #  1..89 days BEFORE Dose 1
+  #  event within 1..89 days before Dose 1 (for variation 3&4)
   elig_89_before_d1 <- function(d) {
     gap <- d$adrug1 - d$aevent
     which(!is.na(d$adrug1) & !is.na(d$aevent) & gap >= 1L & gap <= 89L)
   }
   
-  #  1..89 days BEFORE Dose 2 AND after Dose 1
+  #  event within 1..89 days before Dose 2 AND after Dose 1 (for variation 3&4)
   elig_89_before_d2 <- function(d) {
     gap <- d$adrug2 - d$aevent
     which(!is.na(d$adrug1) & !is.na(d$adrug2) & !is.na(d$aevent) &
             (d$aevent > d$adrug1) & gap >= 1L & gap <= 89L)
   }
   
+  #event within anytime before vaccination (for variation 5&6)
   elig_any_before_d1 <- function(d) which(!is.na(d$aevent) & !is.na(d$adrug1) & (d$aevent < d$adrug1))
   elig_any_between_d1d2 <- function(d) which(!is.na(d$aevent) & !is.na(d$adrug1) & !is.na(d$adrug2) &
                                                d$aevent > d$adrug1 & d$aevent < d$adrug2)
@@ -50,7 +49,7 @@ make_variation <- function(base_df, variation_id, RI, years, seed) {
   
   
   ## ---- shift helpers
-  
+  #for events before dose 1, shift both doses by delay_days (applies for variation 1&2) shift is relative to vaccination day
   shift_d1_plus_d2_days <- function(d, idx, delay_days) {
     if (!length(idx)) return(d)
     d$adrug1[idx]  <- d$adrug1[idx] + delay_days
@@ -63,6 +62,8 @@ make_variation <- function(base_df, variation_id, RI, years, seed) {
     }
     d
   }
+  
+  #for events before dose 2, shift only dose 2 by delay_days (applies for variation 1&2), shift is relative to vaccination day
   shift_d2_only_days <- function(d, idx, delay_days) {
     if (!length(idx)) return(d)
     d$adrug2[idx]  <- d$adrug2[idx] + delay_days
@@ -72,7 +73,7 @@ make_variation <- function(base_df, variation_id, RI, years, seed) {
   
   
   
-  # set D1 to event+L and propagate the same delta to D2 (preserve spacing)
+  # set D1 to event+L and propagate the same delta to D2 (preserve spacing) (applies for variation 3&4) since the shift is relative to event day
   shift_d1_to_event_plusL <- function(d, idx, L = 90L, rp_len = 28L) {
     if (!length(idx)) return(d)
     target <- d$aevent[idx] + L
@@ -93,11 +94,11 @@ make_variation <- function(base_df, variation_id, RI, years, seed) {
     d
   }
   
-  # set D2 to event+L directly (only forward; exact 90-day lead -> no change)
+  # set D2 to event+L 
   set_d2_to_event_plusL <- function(d, idx, L = 90L, rp_len = 28L) {
     if (!length(idx)) return(d)
     target <- d$aevent[idx] + L
-    move   <- which(target > d$adrug2[idx])  # exact 90-day lead -> no change
+    move   <- which(target > d$adrug2[idx]) 
     if (!length(move)) return(d)
     rows <- idx[move]; tgt <- target[move]
     d$adrug2[rows]  <- tgt
