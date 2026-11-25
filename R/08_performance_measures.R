@@ -14,7 +14,7 @@ all_res <- bind_rows(
 )
 
 # --- 2) Performance measures on the LOG scale ---
-perf1 <- all_res %>%
+perf <- all_res %>%
   group_by(dist, scenario, years, RI_true, variation, approach, dose) %>%
   summarise(
     n                = n(),
@@ -23,7 +23,7 @@ perf1 <- all_res %>%
     mean_log         = mean(log_RI_est),
     median_log       = median(log_RI_est),
     emp_se_log       = sd(log_RI_est),
-    avg_model_se_log = mean(SE_est),
+    avg_model_se_log = sqrt(mean(SE_est^2)),
     bias_mean_log    = mean_log   - first(log_RI_true),
     bias_median_log  = median_log - first(log_RI_true),
     mse_log          = mean((log_RI_est - first(log_RI_true))^2),
@@ -39,12 +39,12 @@ perf1 <- all_res %>%
         (n * (n - 1))
     ),
     
-    # approximate under normality
+   
     mcse_bias_median  = 1.2533 * emp_se_log / sqrt(n),
     
     mcse_emp_se       = emp_se_log / sqrt(2 * (n - 1)),
     
-    mcse_avg_model_se = sd(SE_est) / sqrt(n),
+    mcse_avg_model_se = sqrt(var(SE_est^2) / (4 * n* avg_model_se_log^2)),
     
     mcse_mse          = sqrt(
       var((log_RI_est - first(log_RI_true))^2) / n
@@ -57,7 +57,7 @@ perf1 <- all_res %>%
 
 
 # --- 3) Bias plots 
-y_rng <- range(perf1$bias_median_log, na.rm = TRUE)
+y_rng <- range(perf$bias_median_log, na.rm = TRUE)
 y_pad <- ifelse(diff(y_rng) == 0, 0.1, 0.08 * diff(y_rng))
 ylim_use <- c(y_rng[1] - y_pad, y_rng[2] + y_pad)
 
@@ -65,7 +65,7 @@ brks_x <- sort(unique(all_res$variation))
 
 
 # Skewed
-p_bias_skew <- perf1 %>%
+p_bias_skew <- perf %>%
   filter(dist == "Skewed") %>%
   ggplot(aes(x = variation, y = bias_median_log, colour = approach, group = approach)) +
   geom_hline(yintercept = 0, linetype = "dashed") +
@@ -96,6 +96,14 @@ p_bias_unif <- perf1 %>%
   theme(panel.grid.minor = element_blank(),
         legend.position = "bottom")
 
+
+#print plots separately
+p_bias_unif
+p_bias_skew 
+
+#print plots side by side with patchwork
 (p_bias_unif | p_bias_skew) + plot_layout(guides = "collect") &
   theme(legend.position = "bottom")
+
+
 
